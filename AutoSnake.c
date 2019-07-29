@@ -2,10 +2,20 @@
 // TODO: el hardcode
 // TODO: HARDCODE
 // TODO: use every single ncurse API : ))
+// TODO: el usleep worning
+// TODO: handle el 'q' option!
 
 #include "stdlib.h"
 #include "ncurses.h"
 #include "time.h"
+#include "unistd.h"
+
+
+typedef struct Snake
+{
+	struct Head * head;
+	int length;
+} Snake;
 
 typedef struct Position
 {
@@ -72,8 +82,12 @@ int main(int argc, char const *argv[])
 		if ( Arrived(head->position, cheese->position) )
 		{
 			cheeseDraw(cheese);
+			continue;
 		} else {
 			move(cheese->position->y, cheese->position->x); 		// move curser to the cheese!
+			refresh();
+			usleep(80000);
+			continue;
 		}
 		
 		ch = getch();
@@ -114,8 +128,8 @@ Cheese * cheeseSetUp()
 
 int cheeseDraw(Cheese * cheese)
 {
-	cheese->position->y 	= rand() % 20;		// HARDCODE
-	cheese->position->x 	= rand() % 20;		// HARDCODE
+	cheese->position->y 	= rand() % 30;		// HARDCODE
+	cheese->position->x 	= rand() % 40;		// HARDCODE
 	mvprintw(cheese->position->y, cheese->position->x, "@");
 	move(cheese->position->y, cheese->position->x);
 	return 1;
@@ -123,25 +137,29 @@ int cheeseDraw(Cheese * cheese)
 
 int headStepMove(Position * headPos, Position * cheesePos) {
 	// Move Down .. Down .. !
-	if (abs((headPos->y +1) - cheesePos->y) < abs( (headPos->y) - cheesePos->y) /*&& mvinch(headPos->y +1, headPos->x) == '*'*/)
+	if (abs((headPos->y +1) - cheesePos->y) < abs( (headPos->y) - cheesePos->y) && 
+		mvinch(headPos->y +1, headPos->x) != '*')
 	{
 		++headPos->y;
 	}
 
 	// Move Up
-	else if (abs((headPos->y -1) - cheesePos->y) < abs( (headPos->y) - cheesePos->y) /*&& mvinch(headPos->y -1, headPos->x) == '*'*/)
+	else if (abs((headPos->y -1) - cheesePos->y) < abs( (headPos->y) - cheesePos->y) && 
+		mvinch(headPos->y -1, headPos->x) != '*')
 	{
 		--headPos->y;
 	}
 
 	// Move Left
-	else if (abs((headPos->x -1) - cheesePos->x) < abs( (headPos->x) - cheesePos->x) /*&& mvinch(headPos->y, headPos->x -1) == '*'*/)
+	else if (abs((headPos->x -1) - cheesePos->x) < abs( (headPos->x) - cheesePos->x) && 
+		mvinch(headPos->y, headPos->x -1) != '*')
 	{
 		--headPos->x;
 	}
 
 	// Move Right
-	else if (abs((headPos->x +1) - cheesePos->x) < abs( (headPos->x) - cheesePos->x) /*&& mvinch(headPos->y, headPos->x +1) == '*'*/)
+	else if (abs((headPos->x +1) - cheesePos->x) < abs( (headPos->x) - cheesePos->x) && 
+		mvinch(headPos->y, headPos->x +1) != '*')
 	{
 		++headPos->x;
 	}
