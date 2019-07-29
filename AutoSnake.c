@@ -12,10 +12,6 @@
 #include "time.h"
 #include "unistd.h"
 
-int g_score = 0;
-// 2D array of all spaces on the board.
-bool *spaces;
-
 typedef struct Snake
 {
 	struct Head * head;
@@ -31,7 +27,7 @@ typedef struct Position
 typedef struct Head
 {
 	char symbol;
-	Position * position;
+	struct Position * position;
 	struct Head * next;
 	struct Head * prev;
 } Head;
@@ -44,7 +40,6 @@ typedef struct Cheese
 	char symbol;
 	Position * position;
 } Cheese;
-
 
 
 // Head functions
@@ -70,7 +65,7 @@ void snake_game_over( );
 bool snake_in_bounds( Position * position );
 int snake_cooridinate_to_index( Position * position );
 Position snake_index_to_coordinate( int index );
-bool snake_move_player( Position * head, Position * cheesePos );
+bool snake_move_player( Head * head, Cheese * cheese );
 
 
 // =========================================================================
@@ -80,7 +75,7 @@ int main(int argc, char const *argv[])
 	Head * head;
 
 	// Set up the 2D array of all spaces
-    spaces = (bool*) malloc( sizeof( bool ) * 30 * 30 );
+    // spaces = (bool*) malloc( sizeof( bool ) * 20 * 20 );
 
 	Cheese * cheese;
 
@@ -96,7 +91,6 @@ int main(int argc, char const *argv[])
 	head 	= headSetUp(position);
 
 
-
 	// headDraw(head);
 
 	cheese = cheeseSetUp();
@@ -105,33 +99,15 @@ int main(int argc, char const *argv[])
 	noecho();
 	enqueue( head->position );
 
-	while(ch != 'q') {
+	while(1) {
+
 		headStepMove(head->position, cheese->position);
-		// headDraw(head);
-		snake_move_player( head->position, cheese->position );
-		if ( Arrived(head->position, cheese->position) )
-		{
-			cheeseDraw(cheese);
-			// headErase(head);
-			if( !snake_in_bounds( head->position ) )
-			    1;
-			else
-			    snake_move_player( head->position, cheese->position );
-			continue;
-		} else {
-			move(cheese->position->y, cheese->position->x); 		// move curser to the cheese!
-			refresh();
-			usleep(80000);
-			// headErase(head);
-			if( !snake_in_bounds( head->position ) )
-			    1;
-			else
-			    snake_move_player( head->position, cheese->position );
-			continue;
-		}
-		
-		ch = getch();
-	}
+		snake_move_player( head, cheese );
+		move(cheese->position->y, cheese->position->x); 		// move curser to the cheese!
+		refresh();
+		usleep(80000);
+
+	} // end while
 	
 	refresh();
 	endwin();
@@ -167,8 +143,8 @@ Cheese * cheeseSetUp()
 
 int cheeseDraw(Cheese * cheese)
 {
-	cheese->position->y 	= rand() % 30;		// HARDCODE
-	cheese->position->x 	= rand() % 30;		// HARDCODE
+	cheese->position->y 	= rand() % 20;		// HARDCODE
+	cheese->position->x 	= rand() % 20;		// HARDCODE
 	mvprintw(cheese->position->y, cheese->position->x, "@");
 	move(cheese->position->y, cheese->position->x);
 	return 1;
@@ -177,34 +153,42 @@ int cheeseDraw(Cheese * cheese)
 int headStepMove(Position * headPos, Position * cheesePos) {
 	// Move Down .. Down .. !
 	if (abs((headPos->y +1) - cheesePos->y) < abs( (headPos->y) - cheesePos->y) && 
-		mvinch(headPos->y +1, headPos->x) != '*')
+		((mvinch(headPos->y +1, headPos->x) == ' ') || 
+		(mvinch(headPos->y +1, headPos->x) == '@')) && 
+		(mvinch(headPos->y +1, headPos->x) != '*'))
 	{
 		++headPos->y;
 	}
 
 	// Move Up
 	else if (abs((headPos->y -1) - cheesePos->y) < abs( (headPos->y) - cheesePos->y) && 
-		mvinch(headPos->y -1, headPos->x) != '*')
+		((mvinch(headPos->y -1, headPos->x) == ' ') || 
+		(mvinch(headPos->y -1, headPos->x) == '@')) && 
+		(mvinch(headPos->y -1, headPos->x) != '*'))
 	{
 		--headPos->y;
 	}
 
 	// Move Left
 	else if (abs((headPos->x -1) - cheesePos->x) < abs( (headPos->x) - cheesePos->x) && 
-		mvinch(headPos->y, headPos->x -1) != '*')
+		((mvinch(headPos->y, headPos->x -1) == ' ') || 
+		(mvinch(headPos->y, headPos->x -1) == '@')) && 
+		(mvinch(headPos->y, headPos->x -1) != '*'))
 	{
 		--headPos->x;
 	}
 
 	// Move Right
 	else if (abs((headPos->x +1) - cheesePos->x) < abs( (headPos->x) - cheesePos->x) && 
-		mvinch(headPos->y, headPos->x +1) != '*')
+		((mvinch(headPos->y, headPos->x +1) == ' ') || 
+		(mvinch(headPos->y, headPos->x +1) == '@')) || 
+		(mvinch(headPos->y, headPos->x +1) != '*'))
 	{
 		++headPos->x;
 	}
 
 	else { /* Do Nothing - REMOVE ME = else */
-		mvprintw(0, 0, "CHECK ...");
+		// mvprintw(0, 0, " ");
 	}
 
 	return 1;
@@ -241,9 +225,9 @@ void enqueue( Position * position )
    Position *newpos   	= malloc( sizeof( position ) ); 
    Head *newnode 		= malloc( sizeof( Head ) );
 
-   newpos->x = position->x;
-   newpos->y = position->y;
-   newnode->position = newpos;
+   newpos->x 			= position->x;
+   newpos->y 			= position->y;
+   newnode->position 	= newpos;
 
    if( front == NULL && back == NULL )
        front = back = newnode;
@@ -260,23 +244,25 @@ void enqueue( Position * position )
 // Is the current position in bounds?
 bool snake_in_bounds( Position * position )
 {
-    return position->y < 30 - 1 && position->y > 0 && position->x < 30 - 1 && position->x > 0;
+    return position->y < 20 - 1 && position->y > 0 && position->x < 20 - 1 && position->x > 0;
 }
 
 
 // Handles moving the snake for each iteration
-bool snake_move_player( Position * head, Position * cheesePos )
+bool snake_move_player( Head * head, Cheese * cheese )
 {   
-    enqueue( head );
+    enqueue( head->position );
         
     // Check if we're eating the fruit
-    if( !Arrived(head, cheesePos) ) {
+    if( !Arrived(head->position, cheese->position) ) {
     	Position *tail = dequeue( );
         mvprintw( tail->y, tail->x, " " );
+    } else {
+    	cheeseDraw(cheese);
     }
     
     // Draw the new head 
-    mvprintw( head->y, head->x, "S" );
+    mvprintw( head->position->y, head->position->x, "*" );
 }
 
 /** End linked-list functions
