@@ -1,262 +1,142 @@
-// TODO: Head & Cheese same structure!! rename & clean & use 1 .. 
-// TODO: el hardcode
-// TODO: HARDCODE
-// TODO: use every single ncurse API : ))
-// TODO: el usleep worning
-// TODO: handle el 'q' option!
-// TODO: Free el memory allocations && GameOver function
+#include <stdlib.h>
+#include <ncurses.h>
+#include <time.h>
+#include <unistd.h>
 
+#define REFRESH_DELAY 45000L
 
-#include "stdlib.h"
-#include "ncurses.h"
-#include "time.h"
-#include "unistd.h"
-
-typedef struct Snake
-{
-	struct Head * head;
-	int length;
-} Snake;
-
-typedef struct Position
-{
-	int y;
-	int x;	
+typedef struct Position_ {
+   int x;
+   int y;
 } Position;
 
-typedef struct Head
-{
-	char symbol;
-	struct Position * position;
-	struct Head * next;
-	struct Head * prev;
-} Head;
-
- Head *front=NULL;
- Head *back=NULL;
-
-typedef struct Cheese
-{
-	char symbol;
-	Position * position;
+typedef struct Cheese_ {
+   Position posittion;
 } Cheese;
 
+typedef struct Player_ {
+   Position posittion;
+} Player;
 
-// Head functions
-Head * headSetUp(Position * position);
-int headDraw(Head * head);
+void gameBorder(int x, int y, int height, int width);
+Player* drawPlayer(Position posittion);
+Cheese* drawCheese();
+void startGame(Player* p, Cheese* c);
+void pleaseWait(void);
+int catchCheese(Player* p, Cheese* c);
 
-// Target functions
-Cheese * cheeseSetUp();
-int cheeseDraw(Cheese * cheese);
-
-// Bascic Move
-int headStepMove(Position * headPos, Position * cheesePos);
-int headErase(Head * head);
-
-// Check if Head == Cheese Position
-int Arrived(Position * headPos, Position * cheesePos);
-
-Position* peek( );
-Position* dequeue( );
-void enqueue( Position * position );
-void snake_write_text( int y, int x, char* str );
-void snake_game_over( );
-bool snake_in_bounds( Position * position );
-int snake_cooridinate_to_index( Position * position );
-Position snake_index_to_coordinate( int index );
-bool snake_move_player( Head * head, Cheese * cheese );
-
-
-// =========================================================================
 int main(int argc, char const *argv[])
 {
-	int ch;
-	Head * head;
-
-	// Set up the 2D array of all spaces
-    // spaces = (bool*) malloc( sizeof( bool ) * 7 * 7 );
-
-	Cheese * cheese;
-
+   int ch;
+   Player* player;
+   Cheese* cheese;
+   Position p = { 0, 0};
 	initscr();
+   noecho();
 	srand(time(NULL));
 
+   // draw border of the game
+   gameBorder(0, 0, 20, 30);
+   player   = drawPlayer(p);
+   cheese   = drawCheese();
 
-	Position * position;
-	position = malloc(sizeof(Position));
+   while( 1 )
+   {
+      startGame(player, cheese);
+      getch();
+   }
 
-	position->y = 5;
-	position->x = 5;
-	head 	= headSetUp(position);
-
-
-	// headDraw(head);
-
-	cheese = cheeseSetUp();
-	cheeseDraw(cheese);
-	
-	noecho();
-	enqueue( head->position );
-
-	while(1) {
-
-		headStepMove(head->position, cheese->position);
-		enqueue( head->position );
-		    
-		// Check if we're eating the fruit
-		if( !Arrived(head->position, cheese->position) ) {
-			Position *tail = dequeue( );
-		    mvprintw( tail->y, tail->x, " " );
-		} else {
-			cheeseDraw(cheese);
-		}
-		
-		// Draw the new head 
-		mvprintw( head->position->y, head->position->x, "*" );
-		move(cheese->position->y, cheese->position->x); 		// move curser to the cheese!
-		refresh();
-		usleep(800000);
-
-	} // end while
-	
 	refresh();
 	endwin();
 	return 0;
 }
-// =========================================================================
 
-Head * headSetUp(Position * position) 
+void gameBorder(int x, int y, int height, int width)
 {
-	Head * head;
-	head 					= malloc(sizeof(Head));
-	head->position 			= malloc(sizeof(Position));
-
-	head->position->y 		= position->y;
-	head->position->x 		= position->x;
-	return head;
+   int i;
+   // draw top & bottom
+   for(i = x; i < width; ++i)
+      mvprintw(y, x+i, "-");
+   for(i = x; i < width; ++i)
+      mvprintw(y+height, x+i, "-");
+   for(i = y; i < height; ++i)
+      mvprintw(y+i, x, "|");
+   for(i = y; i < y+height; ++i)
+      mvprintw(y+i, x+width, "|");
 }
 
-int headDraw(Head * head)
+Player* drawPlayer(Position posittion)
 {
-	mvprintw(head->position->y, head->position->x, "*");
-	return 1;
+   Player* player    = malloc(sizeof(player));
+
+   player->posittion.x     = posittion.x;
+   player->posittion.y     = posittion.y;
+
+   // FIXME seperate draw and data
+   mvprintw(player->posittion.y, player->posittion.x, "o");
+   return player;
 }
 
-Cheese * cheeseSetUp() 
+Cheese* drawCheese()
 {
-	Cheese * cheese;
-	cheese 					= malloc(sizeof(Cheese));
-	cheese->position 		= malloc(sizeof(Position));
+   Cheese* cheese    = malloc(sizeof(Cheese));
 
-	return cheese;
+   cheese->posittion.x     = 10;
+   cheese->posittion.y     = 10;
+
+   mvprintw(cheese->posittion.y, cheese->posittion.x, "@");
+   //move(y, x);
+   return cheese;
 }
 
-int cheeseDraw(Cheese * cheese)
+void startGame(Player* p, Cheese* c)
 {
-	while (1)
-	{
-		cheese->position->y 	= rand() % 7 + 1;
-		cheese->position->x 	= rand() % 7 + 1;
-		if (mvinch(cheese->position->y, cheese->position->x) == ' ')
-		{
-			mvprintw(cheese->position->y, cheese->position->x, "@");
-			move(cheese->position->y, cheese->position->x);
-			break;
-		} else { continue; }
-		
-	}
-	
-	return 1;
-}
-
-int headStepMove(Position * headPos, Position * cheesePos) {
-	// Move Down .. Down .. !
-	if (abs((headPos->y +1) - cheesePos->y) < abs( (headPos->y) - cheesePos->y) && 
-		((mvinch(headPos->y +1, headPos->x) == ' ') || 
-		(mvinch(headPos->y +1, headPos->x) == '@')) && 
-		(mvinch(headPos->y +1, headPos->x) != '*'))
-	{
-		++headPos->y;
-	}
-
-	// Move Up
-	else if (abs((headPos->y -1) - cheesePos->y) < abs( (headPos->y) - cheesePos->y) && 
-		((mvinch(headPos->y -1, headPos->x) == ' ') || 
-		(mvinch(headPos->y -1, headPos->x) == '@')) && 
-		(mvinch(headPos->y -1, headPos->x) != '*'))
-	{
-		--headPos->y;
-	}
-
-	// Move Left
-	else if (abs((headPos->x -1) - cheesePos->x) < abs( (headPos->x) - cheesePos->x) && 
-		((mvinch(headPos->y, headPos->x -1) == ' ') || 
-		(mvinch(headPos->y, headPos->x -1) == '@')) && 
-		(mvinch(headPos->y, headPos->x -1) != '*'))
-	{
-		--headPos->x;
-	}
-
-	// Move Right
-	else if (abs((headPos->x +1) - cheesePos->x) < abs( (headPos->x) - cheesePos->x) && 
-		((mvinch(headPos->y, headPos->x +1) == ' ') || 
-		(mvinch(headPos->y, headPos->x +1) == '@')) || 
-		(mvinch(headPos->y, headPos->x +1) != '*'))
-	{
-		++headPos->x;
-	}
-
-	else {  /*Do Nothing - REMOVE ME = else */
-		mvprintw(0, 0, " ");
-	}
-
-	return 1;
-}
-int headErase(Head * head)
-{
-	mvprintw(head->position->y, head->position->x, " ");
-}
-
-int Arrived(Position * headPos, Position * cheesePos)
-{
-	if (headPos->y == cheesePos->y && headPos->x == cheesePos->x)
-	{
-		return 1;
-	}
-	return 0;
-}
-
-/** Start linked-list functions
-========================================================================= */
-
-// Returns the position at the front and dequeues
-Position* dequeue( )
-{
-    Head *oldfront 	= back;
-    back 			= back->next;
-
-    return oldfront->position;
-}
-
-// Queues a position at the back
-void enqueue( Position * position )
-{
-   Position *newpos   	= malloc( sizeof( position ) ); 
-   Head *newnode 		= malloc( sizeof( Head ) );
-
-   newpos->x 			= position->x;
-   newpos->y 			= position->y;
-   newnode->position 	= newpos;
-
-   if( front == NULL && back == NULL )
-       front = back = newnode;
-   else
+   while( (p->posittion.y != c->posittion.y) ||
+         (p->posittion.x != c->posittion.x) )
    {
-       front->next = newnode;
-       newnode->prev = front;
-       front = newnode;
+      catchCheese(p, c);
+      pleaseWait();
    }
 }
 
-// =========================================================================
+void pleaseWait(void)
+{
+   refresh();
+   usleep(REFRESH_DELAY);
+   fflush(stdout); // ???
+}
+
+int catchCheese(Player* p, Cheese* c)
+{
+   Position position;
+   if( p->posittion.x < c->posittion.x )
+   {
+      p->posittion.x++;
+      position    = p->posittion;
+   }
+
+   else if( p->posittion.x > c->posittion.x )
+   {
+      p->posittion.x--;
+      position    = p->posittion;
+   }
+
+   else if( p->posittion.y < c->posittion.y )
+   {
+      p->posittion.y++;
+      position    = p->posittion;
+   }
+
+   else if( p->posittion.y > c->posittion.y )
+   {
+      p->posittion.y--;
+      position    = p->posittion;
+   }
+
+   else
+   {
+      return 0;      // faliure
+   }
+
+   drawPlayer(position);
+}
