@@ -19,8 +19,8 @@ typedef struct Player_ {
 } Player;
 
 void gameBorder(int x, int y, int height, int width);
-Player* drawPlayer(Position posittion);
-Cheese* drawCheese();
+Player* drawPlayer(Position position, Position oldPosition);
+Cheese* drawCheese(Position position);
 void startGame(Player* p, Cheese* c);
 void pleaseWait(void);
 int catchCheese(Player* p, Cheese* c);
@@ -30,15 +30,15 @@ int main(int argc, char const *argv[])
    int ch;
    Player* player;
    Cheese* cheese;
-   Position p = { 0, 0};
+   Position p = { 1, 1};
 	initscr();
    noecho();
+   curs_set(0);
 	srand(time(NULL));
 
    // draw border of the game
    gameBorder(0, 0, 20, 30);
-   player   = drawPlayer(p);
-   cheese   = drawCheese();
+   player   = drawPlayer(p, p);
 
    while( 1 )
    {
@@ -65,7 +65,7 @@ void gameBorder(int x, int y, int height, int width)
       mvprintw(y+i, x+width, "|");
 }
 
-Player* drawPlayer(Position posittion)
+Player* drawPlayer(Position posittion, Position oldPosition)
 {
    Player* player    = malloc(sizeof(player));
 
@@ -74,41 +74,56 @@ Player* drawPlayer(Position posittion)
 
    // FIXME seperate draw and data
    mvprintw(player->posittion.y, player->posittion.x, "o");
+   mvprintw(oldPosition.y, oldPosition.x, " ");
    return player;
 }
 
-Cheese* drawCheese()
+Cheese* drawCheese(Position position)
 {
    Cheese* cheese    = malloc(sizeof(Cheese));
 
-   cheese->posittion.x     = 10;
-   cheese->posittion.y     = 10;
+   cheese->posittion.x     = position.x;
+   cheese->posittion.y     = position.y;
 
    mvprintw(cheese->posittion.y, cheese->posittion.x, "@");
-   //move(y, x);
    return cheese;
 }
 
 void startGame(Player* p, Cheese* c)
 {
-   while( (p->posittion.y != c->posittion.y) ||
-         (p->posittion.x != c->posittion.x) )
+
+   int x;
+   int y;
+   int ch;
+   while(1)
    {
-      catchCheese(p, c);
-      pleaseWait();
+      c->posittion.x    = rand() % (30-2) + 1;
+      c->posittion.y    = rand() % (20-2) + 2;
+      if(mvinch(c->posittion.y, c->posittion.x) == 'o')
+         continue;
+      drawCheese(c->posittion);
+
+      while( (p->posittion.y != c->posittion.y) ||
+            (p->posittion.x != c->posittion.x) )
+      {
+         catchCheese(p, c);
+         pleaseWait();
+      }
    }
+
 }
 
 void pleaseWait(void)
 {
    refresh();
    usleep(REFRESH_DELAY);
-   fflush(stdout); // ???
+   //fflush(stdout); // ???
 }
 
 int catchCheese(Player* p, Cheese* c)
 {
    Position position;
+   static Position oldPos;
    if( p->posittion.x < c->posittion.x )
    {
       p->posittion.x++;
@@ -138,5 +153,6 @@ int catchCheese(Player* p, Cheese* c)
       return 0;      // faliure
    }
 
-   drawPlayer(position);
+   drawPlayer(position, oldPos);
+   oldPos = position;
 }
